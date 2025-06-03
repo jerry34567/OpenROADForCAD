@@ -196,3 +196,7 @@ fi
 echo "[INFO] Using ${numThreads} threads."
 eval cmake "${cmakeOptions}" -B "${buildDir}" .
 eval time cmake --build "${buildDir}" -j "${numThreads}"
+
+cd build
+make install
+cd ..

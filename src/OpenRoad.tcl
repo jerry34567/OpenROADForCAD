@@ -101,6 +101,16 @@ proc write_def { args } {
   ord::write_def_cmd $filename $version
 }
 
+sta::define_cmd_args "write_bookshelf" {filename}
+
+proc write_bookshelf { args } {
+  sta::parse_key_args "write_bookshelf" args keys {} flags {}
+
+  sta::check_argc_eq1 "write_bookshelf" $args
+  set filename [file nativename [lindex $args 0]]
+  ord::write_bookshelf_cmd $filename
+}
+
 sta::define_cmd_args "write_abstract_lef" {[-bloat_factor amount|-bloat_occupied_layers] filename}
 sta::define_cmd_args "write_lef" {filename}
 

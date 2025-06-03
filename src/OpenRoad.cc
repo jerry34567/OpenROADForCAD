@@ -36,6 +36,7 @@
 #include "mpl/MakeMacroPlacer.h"
 #include "odb/MakeOdb.h"
 #include "odb/cdl.h"
+#include "odb/bookshelf.h"
 #include "odb/db.h"
 #include "odb/defin.h"
 #include "odb/defout.h"
@@ -369,6 +370,18 @@ void OpenRoad::writeDef(const char* filename, const string& version)
       if (hierarchy_set) {
         sta->getDbNetwork()->setHierarchy();
       }
+    }
+  }
+}
+
+void OpenRoad::writeBookshelf(const char* filename)
+{
+  odb::dbChip* chip = db_->getChip();
+  if (chip) {
+    odb::dbBlock* block = chip->getBlock();
+    if (block) {
+      odb::bookshelfout bookshelf_writer(logger_);
+      bookshelf_writer.writeBlock(block, filename);
     }
   }
 }

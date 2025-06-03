@@ -191,6 +191,9 @@ class OpenRoad
                 // major.minor (avoid including defout.h)
                 const string& version);
 
+  void writeBookshelf(const char* filename);
+
+
   void writeCdl(const char* outFilename,
                 const std::vector<const char*>& mastersFilenames,
                 bool includeFillers);

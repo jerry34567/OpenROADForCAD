@@ -18,6 +18,7 @@ add_subdirectory(src/zutil)
 add_subdirectory(src/cdl)
 add_subdirectory(src/gdsin)
 add_subdirectory(src/gdsout)
+add_subdirectory(src/bookshelf)
 
 if(ENABLE_TESTS)
   add_subdirectory(test)
@@ -36,6 +37,7 @@ target_link_libraries(odb
     utl_lib
     gdsin
     gdsout
+    bookshelf
     ${TCL_LIBRARY}
 )
 

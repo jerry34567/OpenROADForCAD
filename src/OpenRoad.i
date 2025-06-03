@@ -328,6 +328,13 @@ write_def_cmd(const char *filename,
 }
 
 void
+write_bookshelf_cmd(const char *filename)
+{
+  OpenRoad *ord = getOpenRoad();
+  ord->writeBookshelf(filename);
+}
+
+void
 write_lef_cmd(const char *filename)
 {
   OpenRoad *ord = getOpenRoad();

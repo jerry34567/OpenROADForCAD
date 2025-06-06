@@ -432,6 +432,10 @@ proc place_inst { args } {
   $inst setPlacementStatus $placement_status
 }
 
+proc report_hpwl { } {
+  ord::report_hpwl
+}
+
 ################################################################
 
 namespace eval ord {

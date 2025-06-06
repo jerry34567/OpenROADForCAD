@@ -722,6 +722,7 @@ void RepairSetup::printProgress(const int iteration,
   if (iteration % print_interval_ == 0 || force || end) {
     Slack wns;
     Vertex* worst_vertex;
+    // useful for CAD
     sta_->worstSlack(max_, wns, worst_vertex);
     const Slack tns = sta_->totalNegativeSlack(max_);
 

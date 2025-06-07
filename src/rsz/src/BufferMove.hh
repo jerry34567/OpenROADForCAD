@@ -73,6 +73,9 @@ class BufferMove : public BaseMove
   Slack slackAtDriverPin(const BufferedNetPtr& bnet, int index);
 
   Delay requiredDelay(const BufferedNetPtr& bnet);
+  
+  // Calculate total negative slack for a subtree
+  Slack calculateSubtreeTns(const BufferedNetPtr& bnet);
 
   // For rebuffering
   Path* arrival_paths_[RiseFall::index_count];

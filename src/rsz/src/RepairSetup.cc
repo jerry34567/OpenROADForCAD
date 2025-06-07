@@ -77,8 +77,10 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
                               const std::vector<MoveType>& sequence,
                               const bool skip_pin_swap,
                               const bool skip_gate_cloning,
+                              const bool skip_gate_sizing,
                               const bool skip_size_down,
                               const bool skip_buffering,
+                              const bool skip_split_load,
                               const bool skip_buffer_removal,
                               const bool skip_last_gasp)
 {
@@ -141,7 +143,9 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
     }
     // TODO: Add size_down_move to the sequence if we want to allow
     // Always  have sizing
-    move_sequence.push_back(resizer_->size_up_move);
+    if (!skip_gate_sizing) {
+        move_sequence.push_back(resizer_->size_up_move);
+    }
     if (!skip_pin_swap) {
       move_sequence.push_back(resizer_->swap_pins_move);
     }
@@ -151,7 +155,7 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
     if (!skip_gate_cloning) {
       move_sequence.push_back(resizer_->clone_move);
     }
-    if (!skip_buffering) {
+    if (!skip_split_load) {
       move_sequence.push_back(resizer_->split_load_move);
     }
   }
@@ -269,7 +273,7 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
     while (pass <= max_passes) {
       opto_iteration++;
       if (verbose || opto_iteration == 1) {
-        printProgress(opto_iteration, false, false, false, num_viols);
+        printProgress(opto_iteration, true, false, false, num_viols);
       }
       if (terminateProgress(opto_iteration,
                             initial_tns,

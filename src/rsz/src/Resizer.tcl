@@ -522,8 +522,10 @@ sta::define_cmd_args "repair_timing" {[-setup] [-hold]\
                                         [-sequence move_string]\
                                         [-skip_pin_swap]\
                                         [-skip_gate_cloning]\
+                                        [-skip_gate_sizing]\
                                         [-skip_size_down]\
                                         [-skip_buffering]\
+                                        [-skip_split_load]\
                                         [-skip_buffer_removal]\
                                         [-skip_last_gasp]\
                                         [-repair_tns tns_end_percent]\
@@ -540,7 +542,8 @@ proc repair_timing { args } {
             -libraries -max_utilization -max_buffer_percent -sequence \
             -recover_power -repair_tns -max_passes -max_repairs_per_pass} \
     flags {-setup -hold -allow_setup_violations -skip_pin_swap -skip_gate_cloning \
-           -skip_size_down -skip_buffering -skip_buffer_removal -skip_last_gasp \
+           -skip_gate_sizing -skip_size_down -skip_buffering -skip_split_load \
+           -skip_buffer_removal -skip_last_gasp \
             -match_cell_footprint -verbose}
 
   set setup [info exists flags(-setup)]
@@ -574,8 +577,10 @@ proc repair_timing { args } {
   set allow_setup_violations [info exists flags(-allow_setup_violations)]
   set skip_pin_swap [info exists flags(-skip_pin_swap)]
   set skip_gate_cloning [info exists flags(-skip_gate_cloning)]
+  set skip_gate_sizing [info exists flags(-skip_gate_sizing)]
   set skip_size_down [info exists flags(-skip_size_down)]
   set skip_buffering [info exists flags(-skip_buffering)]
+  set skip_split_load [info exists flags(-skip_split_load)]
   set skip_buffer_removal [info exists flags(-skip_buffer_removal)]
   set skip_last_gasp [info exists flags(-skip_last_gasp)]
   rsz::set_max_utilization [rsz::parse_max_util keys]
@@ -634,7 +639,8 @@ proc repair_timing { args } {
       set repaired_setup [rsz::repair_setup $setup_margin $repair_tns_end_percent $max_passes \
         $max_repairs_per_pass $match_cell_footprint $verbose \
         $sequence \
-        $skip_pin_swap $skip_gate_cloning $skip_size_down $skip_buffering \
+        $skip_pin_swap $skip_gate_cloning $skip_gate_sizing $skip_size_down $skip_buffering \
+        $skip_split_load \
         $skip_buffer_removal $skip_last_gasp]
     }
     if { $hold } {

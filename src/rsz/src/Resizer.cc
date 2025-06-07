@@ -3684,8 +3684,10 @@ bool Resizer::repairSetup(double setup_margin,
                           const std::vector<MoveType>& sequence,
                           bool skip_pin_swap,
                           bool skip_gate_cloning,
+                          bool skip_gate_sizing,
                           bool skip_size_down,
                           bool skip_buffering,
+                          bool skip_split_load,
                           bool skip_buffer_removal,
                           bool skip_last_gasp)
 {
@@ -3704,8 +3706,10 @@ bool Resizer::repairSetup(double setup_margin,
                                     sequence,
                                     skip_pin_swap,
                                     skip_gate_cloning,
+                                    skip_gate_sizing,
                                     skip_size_down,
                                     skip_buffering,
+                                    skip_split_load,
                                     skip_buffer_removal,
                                     skip_last_gasp);
 }

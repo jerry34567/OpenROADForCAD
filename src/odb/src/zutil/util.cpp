@@ -329,16 +329,16 @@ int64_t WireLengthEvaluator::hpwl(dbNet* net,
   // if (net->getSigType().isSupply() || net->isSpecial()) {
   //   return 0;
   // }
-  std::cout << "temp: net->getConstName(): " << net->getConstName() << std::endl;
+//   std::cout << "temp: net->getConstName(): " << net->getConstName() << std::endl;
 
   Rect bbox = net->getTermBBox();
   hpwl_x = bbox.xMax() - bbox.xMin();
   hpwl_y = bbox.yMax() - bbox.yMin();
-  std::cout << "temp: bbox: " << bbox.xMin() << " " << bbox.yMin() << " " << bbox.xMax() << " " << bbox.yMax() << std::endl;
-  std::cout << "temp: hpwl_x: " << hpwl_x << std::endl;
-  std::cout << "temp: hpwl_y: " << hpwl_y << std::endl;
-  std::cout << "real: hpwl_x: " << bbox.xMax() - bbox.xMin() << std::endl;
-  std::cout << "real: hpwl_y: " << bbox.yMax() - bbox.yMin() << std::endl;
+//   std::cout << "temp: bbox: " << bbox.xMin() << " " << bbox.yMin() << " " << bbox.xMax() << " " << bbox.yMax() << std::endl;
+//   std::cout << "temp: hpwl_x: " << hpwl_x << std::endl;
+//   std::cout << "temp: hpwl_y: " << hpwl_y << std::endl;
+//   std::cout << "real: hpwl_x: " << bbox.xMax() - bbox.xMin() << std::endl;
+//   std::cout << "real: hpwl_y: " << bbox.yMax() - bbox.yMin() << std::endl;
   // hpwl_x = bbox.dx();
   // hpwl_y = bbox.dy();
   
@@ -356,9 +356,9 @@ void WireLengthEvaluator::report(utl::Logger* logger) const
     //                block_->dbuToMicrons(hpwl(net, tmp, tmp)));
     // total_hpwl += block_->dbuToMicrons(hpwl(net, tmp, tmp));
 
-    logger->report("{} {}",
-                   net->getConstName(),
-                   hpwl(net, tmp, tmp));
+    // logger->report("{} {}",
+    //                net->getConstName(),
+    //                hpwl(net, tmp, tmp));
     total_hpwl += hpwl(net, tmp, tmp);
   }
   logger->report("Total HPWL: {}", total_hpwl);

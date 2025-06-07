@@ -281,9 +281,18 @@ BufferedNetPtr BufferMove::rebufferForTiming(const BufferedNetPtr& bnet)
   for (const BufferedNetPtr& p : Z) {
     // Find slack for drvr_pin into option.
     const Slack slack = slackAtDriverPin(p, i);
+    
+    // Calculate subtree TNS for this option
+    const Slack subtree_tns = calculateSubtreeTns(p);
+    // std::cout << "subtree_tns: " << subtree_tns << std::endl;
+    // debugPrint(logger_, RSZ, "rebuffer", 3, 
+    //            "option {:3d}: subtree TNS = {}", 
+    //            i, delayAsString(subtree_tns, this, 3));
+    
     if (best_option == nullptr
         || p->slackTransition() == nullptr /* buffer tree unconstrained */
         || fuzzyGreater(slack, best_slack)) {
+    //   std::cout << "slack: " << slack << std::endl;
       best_slack = slack;
       best_option = p;
       best_index = i;
@@ -537,6 +546,42 @@ Delay BufferMove::requiredDelay(const BufferedNetPtr& bnet)
       bnet);
 
   return worst_load_slack - bnet->slack();
+}
+
+Slack BufferMove::calculateSubtreeTns(const BufferedNetPtr& bnet)
+{
+  using BnetType = BufferedNetType;
+  using BnetPtr = BufferedNetPtr;
+
+  Slack tns = 0.0;
+//   std::cout << "calculateSubtreeTns" << std::endl;
+  visitTree(
+      [&](auto& recurse, int level, const BnetPtr& bnet) -> int {
+        // for (int i = 0; i < level; i++) {
+        //   std::cout << "  ";
+        // }
+        // std::cout << "bnet->type(): " << (int)bnet->type() << std::endl;
+        switch (bnet->type()) {
+          case BnetType::wire:
+          case BnetType::buffer:
+            return recurse(bnet->ref());
+          case BnetType::junction:
+            return recurse(bnet->ref()) + recurse(bnet->ref2());
+          case BnetType::load: {
+            const Slack slack = bnet->slack();
+            // Only add negative slack to TNS
+            if (slack < 0.0) {
+              tns += slack;
+            }
+            return 1;
+          }
+          default:
+            return 0;
+        }
+      },
+      bnet);
+
+  return tns;
 }
 
 // Return inserted buffer count.

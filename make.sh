@@ -1,4 +1,4 @@
 cd build 
-make -j$(nproc)
+make -j16
 make install
 cd ..

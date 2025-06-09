@@ -737,6 +737,7 @@ class Resizer : public dbStaState, public dbNetworkObserver
   const MinMax* max_ = MinMax::max();
   LibertyCellSeq buffer_cells_;
   LibertyCell* buffer_lowest_drive_ = nullptr;
+  LibertyCell* buffer_highest_drive_ = nullptr;
   std::set<LibertyCell*> buffer_fast_sizes_;
   // Buffer list created by CTS kept here so that we use the
   // exact same buffers when reparing clock nets.

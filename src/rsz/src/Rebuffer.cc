@@ -206,13 +206,13 @@ void BufferMove::annotateLoadSlacks(BufferedNetPtr& bnet, Vertex* root_vertex)
 }
 
 // Find initial timing-optimized rebuffering choice
-BufferedNetPtr BufferMove::rebufferForTiming(const BufferedNetPtr& bnet)
+BufferedNetPtr BufferMove::rebufferForTiming(const BufferedNetPtr& bnet, const Pin* drvr_pin)
 {
   using BnetType = BufferedNetType;
   using BnetSeq = BufferedNetSeq;
   using BnetPtr = BufferedNetPtr;
 
-  const BnetSeq Z = visitTree(
+  BnetSeq Z = visitTree(
       [this](auto& recurse, const int level, const BnetPtr& bnet) -> BnetSeq {
         switch (bnet->type()) {
           case BnetType::wire: {
@@ -278,12 +278,12 @@ BufferedNetPtr BufferMove::rebufferForTiming(const BufferedNetPtr& bnet)
   BufferedNetPtr best_option = nullptr;
   int best_index = 0;
   int i = 1;
-  for (const BufferedNetPtr& p : Z) {
+  for (BufferedNetPtr& p : Z) {
     // Find slack for drvr_pin into option.
     const Slack slack = slackAtDriverPin(p, i);
     
     // Calculate subtree TNS for this option
-    const Slack subtree_tns = calculateSubtreeTns(p);
+    // const Slack subtree_tns = calculateSubtreeTns(p, drvr_pin);
     // std::cout << "subtree_tns: " << subtree_tns << std::endl;
     // debugPrint(logger_, RSZ, "rebuffer", 3, 
     //            "option {:3d}: subtree TNS = {}", 
@@ -548,27 +548,47 @@ Delay BufferMove::requiredDelay(const BufferedNetPtr& bnet)
   return worst_load_slack - bnet->slack();
 }
 
-Slack BufferMove::calculateSubtreeTns(const BufferedNetPtr& bnet)
+Slack BufferMove::calculateSubtreeTns(BufferedNetPtr& bnet, const Pin* drvr_pin)
 {
   using BnetType = BufferedNetType;
   using BnetPtr = BufferedNetPtr;
 
   Slack tns = 0.0;
 //   std::cout << "calculateSubtreeTns" << std::endl;
+  annotateLoadSlacks(bnet, graph_->pinDrvrVertex(drvr_pin));
   visitTree(
       [&](auto& recurse, int level, const BnetPtr& bnet) -> int {
         // for (int i = 0; i < level; i++) {
         //   std::cout << "  ";
         // }
-        // std::cout << "bnet->type(): " << (int)bnet->type() << std::endl;
+        // switch (bnet->type()) {
+        //   case BnetType::wire:
+        //     std::cout << bnet->to_string(resizer_);
+        //     break;
+        //   case BnetType::buffer:
+        //     std::cout << bnet->to_string(resizer_);
+        //     break;
+        //   case BnetType::junction:
+        //     std::cout << bnet->to_string(resizer_);
+        //     break;
+        //   case BnetType::load:
+        //     std::cout << bnet->to_string(resizer_);
+        //     break;
+        //   default:
+        //     std::cout << "unknown " << std::endl;
+        //     break;
+        // }
         switch (bnet->type()) {
           case BnetType::wire:
           case BnetType::buffer:
+            // std::cout << std::endl;
             return recurse(bnet->ref());
           case BnetType::junction:
+            // std::cout << std::endl;
             return recurse(bnet->ref()) + recurse(bnet->ref2());
           case BnetType::load: {
             const Slack slack = bnet->slack();
+            // std::cout << "    " << slack << std::endl;
             // Only add negative slack to TNS
             if (slack < 0.0) {
               tns += slack;
@@ -633,7 +653,7 @@ int BufferMove::rebuffer(const Pin* drvr_pin)
       sta_->findRequireds();
 
       annotateLoadSlacks(bnet, graph_->pinDrvrVertex(drvr_pin));
-      BufferedNetPtr best_option = rebufferForTiming(bnet);
+      BufferedNetPtr best_option = rebufferForTiming(bnet, drvr_pin);
 
       if (best_option) {
         Delay drvr_gate_delay;

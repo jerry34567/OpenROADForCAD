@@ -35,6 +35,7 @@
 #include "sta/Units.hh"
 #include "sta/VerilogWriter.hh"
 #include "utl/Logger.h"
+#include "sta/Path.hh"
 
 namespace rsz {
 
@@ -53,8 +54,10 @@ using sta::GraphDelayCalc;
 using sta::InstancePinIterator;
 using sta::NetConnectedPinIterator;
 using sta::PathExpanded;
+using sta::PathSeq;
 using sta::Slew;
 using sta::VertexOutEdgeIterator;
+using sta::VertexPathIterator;
 
 RepairSetup::RepairSetup(Resizer* resizer) : resizer_(resizer)
 {
@@ -174,31 +177,49 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
   // vertex. This may be the place where we can do some round robin fun to
   // individually control each clock domain instead of just fixating on fixing
   // one.
+//   for (Vertex* end : *endpoints) {
+//     const Slack end_slack = sta_->vertexSlack(end, max_);
+//     if (end_slack < setup_slack_margin) {
+//       violating_ends.emplace_back(end, end_slack);
+//     }
+//   }
+//   std::stable_sort(violating_ends.begin(),
+//                    violating_ends.end(),
+//                    [](const auto& end_slack1, const auto& end_slack2) {
+//                      return end_slack1.second < end_slack2.second;
+//                    });
+  PathSeq violating_paths;
   for (Vertex* end : *endpoints) {
     const Slack end_slack = sta_->vertexSlack(end, max_);
-    if (end_slack < setup_slack_margin) {
-      violating_ends.emplace_back(end, end_slack);
+    VertexPathIterator path_iter(end, this);
+    // std::cout << "end: " << end->name(network_) << " " << end_slack << std::endl;
+    while (path_iter.hasNext()) {
+      Path* path = path_iter.next();
+      // std::cout << "path: " << path->vertex(sta_)->name(network_) << " " << path->slack(sta_) << std::endl;
+      if (path->slack(sta_) < setup_slack_margin) {
+        violating_paths.push_back(path);
+      }
     }
   }
-  std::stable_sort(violating_ends.begin(),
-                   violating_ends.end(),
-                   [](const auto& end_slack1, const auto& end_slack2) {
-                     return end_slack1.second < end_slack2.second;
+  std::stable_sort(violating_paths.begin(),
+                   violating_paths.end(),
+                   [this](const auto& path1, const auto& path2) {
+                     return path1->slack(sta_) < path2->slack(sta_);
                    });
   debugPrint(logger_,
              RSZ,
              "repair_setup",
              1,
              "Violating endpoints {}/{} {}%",
-             violating_ends.size(),
+             violating_paths.size(),
              endpoints->size(),
-             int(violating_ends.size() / double(endpoints->size()) * 100));
+             int(violating_paths.size() / double(endpoints->size()) * 100));
 
-  if (!violating_ends.empty()) {
+  if (!violating_paths.empty()) {
     logger_->info(RSZ,
                   94,
                   "Found {} endpoints with setup violations.",
-                  violating_ends.size());
+                  violating_paths.size());
   } else {
     // nothing to repair
     logger_->metric("design__instance__count__setup_buffer", 0);
@@ -207,17 +228,17 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
   }
 
   int end_index = 0;
-  int max_end_count = violating_ends.size() * repair_tns_end_percent;
+  int max_end_count = violating_paths.size() * repair_tns_end_percent;
   float initial_tns = sta_->totalNegativeSlack(max_);
   float prev_tns = initial_tns;
-  int num_viols = violating_ends.size();
+  int num_viols = violating_paths.size();
   // Always repair the worst endpoint, even if tns percent is zero.
   max_end_count = max(max_end_count, 1);
   logger_->info(RSZ,
                 99,
                 "Repairing {} out of {} ({:0.2f}%) violating endpoints...",
                 max_end_count,
-                violating_ends.size(),
+                violating_paths.size(),
                 repair_tns_end_percent * 100.0);
 
   // Ensure that max cap and max fanout violations don't get worse
@@ -230,13 +251,22 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
   bool two_cons_terminations = false;
   printProgress(opto_iteration, false, false, false, num_viols);
   float fix_rate_threshold = inc_fix_rate_threshold_;
-  if (!violating_ends.empty()) {
-    min_viol_ = -violating_ends.back().second;
-    max_viol_ = -violating_ends.front().second;
+  if (!violating_paths.empty()) {
+    min_viol_ = -violating_paths.back()->slack(sta_);
+    max_viol_ = -violating_paths.front()->slack(sta_);
   }
-  for (const auto& end_original_slack : violating_ends) {
+  while (!violating_paths.empty()) {
+    std::stable_sort(violating_paths.begin(),
+                   violating_paths.end(),
+                   [this](const auto& path1, const auto& path2) {
+                     return path1->slack(sta_) < path2->slack(sta_);
+                   });
+    Path* end_path = violating_paths.front();
+    violating_paths.erase(violating_paths.begin());
+    std::cout << "path: " << end_path->vertex(sta_)->name(network_) << " " << end_path->slack(sta_) << std::endl;
+
     fallback_ = false;
-    Vertex* end = end_original_slack.first;
+    Vertex* end = end_path->vertex(sta_);
     Slack end_slack = sta_->vertexSlack(end, max_);
     Slack worst_slack;
     Vertex* worst_vertex;
@@ -324,8 +354,18 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
         // clang-format on
         break;
       }
-      Path* end_path = sta_->vertexWorstSlackPath(end, max_);
+      // Path* end_path = sta_->vertexWorstSlackPath(end, max_);
 
+      // bool changed = false;
+      // VertexPathIterator* path_iter = sta_->vertexPathIterator(end, nullptr, max_);
+      // while (path_iter->hasNext()) {
+      //   Path *path = path_iter->next();
+      //   Slack slack = path->slack(sta_);
+      //   if (slack < setup_slack_margin) {
+      //     bool b = repairPath(path, slack, setup_slack_margin);
+      //     changed = changed || b;
+      //   }
+      // }
       const bool changed = repairPath(end_path, end_slack, setup_slack_margin);
       if (!changed) {
         if (pass != 1) {
@@ -426,13 +466,13 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
     if (verbose || opto_iteration == 1) {
       printProgress(opto_iteration, true, false, false, num_viols);
     }
-    if (two_cons_terminations) {
-      // clang-format off
-      debugPrint(logger_, RSZ, "repair_setup", 1, "bailing out of setup fixing"
-                 "due to no TNS progress for two opto cycles");
-      // clang-format on
-      break;
-    }
+    // if (two_cons_terminations) {
+    //   // clang-format off
+    //   debugPrint(logger_, RSZ, "repair_setup", 1, "bailing out of setup fixing"
+    //              "due to no TNS progress for two opto cycles");
+    //   // clang-format on
+    //   break;
+    // }
   }  // for each violating endpoint
 
   if (!skip_last_gasp) {
@@ -586,6 +626,7 @@ bool RepairSetup::repairPath(Path* path,
                              const Slack path_slack,
                              const float setup_slack_margin)
 {
+  // float initial_tns = sta_->totalNegativeSlack(max_);
   PathExpanded expanded(path, sta_);
   int changed = 0;
 
@@ -700,6 +741,14 @@ bool RepairSetup::repairPath(Path* path,
       }
     }
   }
+  // float curr_tns = sta_->totalNegativeSlack(max_);
+  // std::cout << "curr_tns: " << curr_tns << " initial_tns: " << initial_tns << std::endl;
+//   if (curr_tns < initial_tns) {
+//     return true;
+//   }
+//   else {
+//     return false;
+//   }
   return changed > 0;
 }
 
@@ -782,18 +831,18 @@ bool RepairSetup::terminateProgress(const int iteration,
   }
   if (iteration % opto_small_interval_ == 0) {
     float curr_tns = sta_->totalNegativeSlack(max_);
-    float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
+    // float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
     prev_tns = curr_tns;
-    if (iteration > 1000  // allow for some initial fixing for 1000 iterations
-        && inc_fix_rate < fix_rate_threshold) {
-      // clang-format off
-      debugPrint(logger_, RSZ, "repair_setup", 1, "bailing out at iter {}"
-                 " because incr fix rate {:0.2f}% is < {:0.2f}% [endpt {}/{}]",
-                 iteration, inc_fix_rate*100, fix_rate_threshold*100,
-                 endpt_index, num_endpts);
-      // clang-format on
-      return true;
-    }
+    // if (iteration > 1000  // allow for some initial fixing for 1000 iterations
+    //     && inc_fix_rate < fix_rate_threshold) {
+    //   // clang-format off
+    //   debugPrint(logger_, RSZ, "repair_setup", 1, "bailing out at iter {}"
+    //              " because incr fix rate {:0.2f}% is < {:0.2f}% [endpt {}/{}]",
+    //              iteration, inc_fix_rate*100, fix_rate_threshold*100,
+    //              endpt_index, num_endpts);
+    //   // clang-format on
+    //   return true;
+    // }
   }
   return false;
 }

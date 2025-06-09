@@ -43,7 +43,7 @@ class BufferMove : public BaseMove
   int rebuffer(const Pin* drvr_pin);
 
   void annotateLoadSlacks(BufferedNetPtr& bnet, Vertex* root_vertex);
-  BufferedNetPtr rebufferForTiming(const BufferedNetPtr& bnet);
+  BufferedNetPtr rebufferForTiming(const BufferedNetPtr& bnet, const Pin* drvr_pin);
   BufferedNetPtr recoverArea(const BufferedNetPtr& bnet,
                              sta::Delay slack_target,
                              float alpha);
@@ -75,7 +75,7 @@ class BufferMove : public BaseMove
   Delay requiredDelay(const BufferedNetPtr& bnet);
   
   // Calculate total negative slack for a subtree
-  Slack calculateSubtreeTns(const BufferedNetPtr& bnet);
+  Slack calculateSubtreeTns(BufferedNetPtr& bnet, const Pin* drvr_pin);
 
   // For rebuffering
   Path* arrival_paths_[RiseFall::index_count];

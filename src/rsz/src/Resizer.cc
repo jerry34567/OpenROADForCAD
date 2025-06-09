@@ -746,6 +746,7 @@ void Resizer::findBuffers()
            });
 
       buffer_lowest_drive_ = buffer_cells_[0];
+      buffer_highest_drive_ = buffer_cells_[buffer_cells_.size() - 1];
     }
   }
 }

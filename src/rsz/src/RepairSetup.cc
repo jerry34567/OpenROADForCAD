@@ -171,7 +171,7 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
 
   // Sort failing endpoints by slack.
   const VertexSet* endpoints = sta_->endpoints();
-  vector<pair<Vertex*, Slack>> violating_ends;
+//   vector<pair<Vertex*, Slack>> violating_ends;
   // logger_->setDebugLevel(RSZ, "repair_setup", 2);
   // Should check here whether we can figure out the clock domain for each
   // vertex. This may be the place where we can do some round robin fun to
@@ -297,6 +297,7 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
     }
     Slack prev_end_slack = end_slack;
     Slack prev_worst_slack = worst_slack;
+    Delay prev_tns = sta_->totalNegativeSlack(max_);
     int pass = 1;
     int decreasing_slack_passes = 0;
     resizer_->journalBegin();
@@ -396,24 +397,26 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
       resizer_->updateParasitics();
       sta_->findRequireds();
       end_slack = sta_->vertexSlack(end, max_);
+      Delay tns = sta_->totalNegativeSlack(max_);
       sta_->worstSlack(max_, worst_slack, worst_vertex);
-      const bool better
-          = (fuzzyGreater(worst_slack, prev_worst_slack)
-             || (end_index != 1 && fuzzyEqual(worst_slack, prev_worst_slack)
-                 && fuzzyGreater(end_slack, prev_end_slack)));
+      const bool better = (fuzzyGreater(tns, prev_tns)
+                           || (end_index != 1 && fuzzyEqual(tns, prev_tns)
+                               && fuzzyGreater(end_slack, prev_end_slack)));
       debugPrint(logger_,
                  RSZ,
                  "repair_setup",
                  2,
-                 "pass {} slack = {} worst_slack = {} {}",
+                 "pass {} slack = {} worst_slack = {} tns {} {}",
                  pass,
                  delayAsString(end_slack, sta_, digits),
                  delayAsString(worst_slack, sta_, digits),
+                 delayAsString(tns, sta_, digits),
                  better ? "save" : "");
       if (better) {
         if (end_slack > setup_slack_margin) {
           --num_viols;
         }
+        prev_tns = tns;
         prev_end_slack = end_slack;
         prev_worst_slack = worst_slack;
         decreasing_slack_passes = 0;

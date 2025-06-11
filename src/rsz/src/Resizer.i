@@ -525,7 +525,9 @@ repair_setup(double setup_margin,
              bool skip_buffering,
              bool skip_split_load,
              bool skip_buffer_removal,
-             bool skip_last_gasp)
+             bool skip_last_gasp,
+             bool ga_enabled,
+             bool shuffle_enabled)
 {
   ensureLinked();
   Resizer *resizer = getResizer();
@@ -537,7 +539,18 @@ repair_setup(double setup_margin,
                        skip_gate_sizing,
                        skip_size_down,
                        skip_buffering, skip_split_load, skip_buffer_removal,
-                       skip_last_gasp);
+                       skip_last_gasp, ga_enabled, shuffle_enabled);
+}
+
+bool 
+gate_sizing_with_ga()
+{
+  ensureLinked();
+  Resizer *resizer = getResizer();
+  rsz::GaParams ga_params;
+  float setup_slack_margin = 0.0;
+  bool verbose = false;
+  return resizer->gateSizingWithGa(ga_params, setup_slack_margin, verbose);
 }
 
 void

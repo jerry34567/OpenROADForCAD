@@ -21,6 +21,8 @@ cc_library(
         "src/BufferedNet.hh",
         "src/CloneMove.cc",
         "src/CloneMove.hh",
+        "src/GAMove.cc",
+        "src/GAMove.hh",
         "src/EstimateWireParasitics.cc",
         "src/Graphics.cc",
         "src/Graphics.hh",

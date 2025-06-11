@@ -128,7 +128,7 @@ bool SplitLoadMove::doMove(const Path* drvr_path,
   // H-Fix Use driver parent for hierarchy, not the top instance
   Instance* parent = db_network_->getOwningInstanceParent(drvr_pin);
 
-//   LibertyCell* buffer_cell = resizer_->buffer_lowest_drive_;
+  // LibertyCell* buffer_cell = resizer_->buffer_lowest_drive_;
   LibertyCell* buffer_cell = resizer_->buffer_highest_drive_;
   const Point drvr_loc = db_network_->location(drvr_pin);
 

@@ -15,7 +15,8 @@ add_library(rsz_lib
     BufferedNet.cc
     BufferMove.cc
     CloneMove.cc
-    PreChecks.cc      
+    PreChecks.cc 
+    GAMove.cc
     RecoverPower.cc    
     RepairDesign.cc
     RepairHold.cc

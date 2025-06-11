@@ -534,6 +534,9 @@ sta::define_cmd_args "repair_timing" {[-setup] [-hold]\
                                         [-max_utilization util] \
                                         [-match_cell_footprint] \
                                         [-max_repairs_per_pass max_repairs_per_pass]\
+                                        [-use_ga]\
+                                        [-path_ga_enabled] \
+                                        [-shuffle_enabled]
                                         [-verbose]}
 
 proc repair_timing { args } {
@@ -544,7 +547,7 @@ proc repair_timing { args } {
     flags {-setup -hold -allow_setup_violations -skip_pin_swap -skip_gate_cloning \
            -skip_gate_sizing -skip_size_down -skip_buffering -skip_split_load \
            -skip_buffer_removal -skip_last_gasp \
-            -match_cell_footprint -verbose}
+            -match_cell_footprint -verbose -use_ga -path_ga_enabled -shuffle_enabled}
 
   set setup [info exists flags(-setup)]
   set hold [info exists flags(-hold)]
@@ -583,6 +586,9 @@ proc repair_timing { args } {
   set skip_split_load [info exists flags(-skip_split_load)]
   set skip_buffer_removal [info exists flags(-skip_buffer_removal)]
   set skip_last_gasp [info exists flags(-skip_last_gasp)]
+  set use_ga [info exists flags(-use_ga)]
+  set path_ga_enabled [info exists flags(-path_ga_enabled)]
+  set shuffle_enabled [info exists flags(-shuffle_enabled)]
   rsz::set_max_utilization [rsz::parse_max_util keys]
 
   set max_buffer_percent 20
@@ -636,12 +642,16 @@ proc repair_timing { args } {
     set recovered_power [rsz::recover_power $recover_power_percent $match_cell_footprint $verbose]
   } else {
     if { $setup } {
-      set repaired_setup [rsz::repair_setup $setup_margin $repair_tns_end_percent $max_passes \
-        $max_repairs_per_pass $match_cell_footprint $verbose \
-        $sequence \
-        $skip_pin_swap $skip_gate_cloning $skip_gate_sizing $skip_size_down $skip_buffering \
-        $skip_split_load \
-        $skip_buffer_removal $skip_last_gasp]
+      if { $use_ga } {
+        set repaired_setup [rsz::gate_sizing_with_ga]
+      } else {
+        set repaired_setup [rsz::repair_setup $setup_margin $repair_tns_end_percent $max_passes \
+          $max_repairs_per_pass $match_cell_footprint $verbose \
+          $sequence \
+          $skip_pin_swap $skip_gate_cloning $skip_gate_sizing $skip_size_down $skip_buffering \
+          $skip_split_load \
+          $skip_buffer_removal $skip_last_gasp $path_ga_enabled $shuffle_enabled]
+      }
     }
     if { $hold } {
       set repaired_hold [rsz::repair_hold $setup_margin $hold_margin \

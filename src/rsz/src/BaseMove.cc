@@ -634,11 +634,25 @@ LibertyCell* BaseMove::upsizeCell(LibertyPort* in_port,
            const float capacitance2 = port2->capacitance();
            return std::tie(drive2, intrinsic1, capacitance1)
                   < std::tie(drive1, intrinsic2, capacitance2);
+          // return std::tie(drive2, intrinsic1, capacitance1)
+          //        > std::tie(drive1, intrinsic2, capacitance2);
          });
     const float drive = drvr_port->cornerPort(lib_ap)->driveResistance();
     const float delay
         = resizer_->gateDelay(drvr_port, load_cap, resizer_->tgt_slew_dcalc_ap_)
           + prev_drive * in_port->cornerPort(lib_ap)->capacitance();
+
+    debugPrint(logger_,
+                 RSZ,
+                 "repair_setup",
+                 2,
+                 "original: {}, drive: {}, delay: {}",
+                 drvr_port->libertyCell()->name(),
+                 drive,
+                 delay);
+
+    LibertyCell* best_swappable = nullptr;
+    float best_delay = delay;
 
     for (LibertyCell* swappable : swappable_cells) {
       LibertyCell* swappable_corner = swappable->cornerCell(lib_ap);
@@ -651,9 +665,26 @@ LibertyCell* BaseMove::upsizeCell(LibertyPort* in_port,
       const float swappable_delay
           = resizer_->gateDelay(swappable_drvr, load_cap, dcalc_ap)
             + prev_drive * swappable_input->capacitance();
-      if (swappable_drive < drive && swappable_delay < delay) {
-        return swappable;
+
+      debugPrint(logger_,
+                 RSZ,
+                 "repair_setup",
+                 2,
+                 "swappable_cells: {}, drive: {}, delay: {}",
+                 swappable->name(),
+                 swappable_drive,
+                 swappable_delay);
+
+      // if (swappable_drive < drive && swappable_delay < delay) {
+      //   return swappable;
+      // }
+      if (swappable_delay < best_delay) {
+        best_swappable = swappable;
+        best_delay = swappable_delay;
       }
+    }
+    if (best_swappable) {
+      return best_swappable;
     }
   }
   return nullptr;

@@ -256,20 +256,28 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
     max_viol_ = -violating_paths.front()->slack(sta_);
   }
   while (!violating_paths.empty()) {
+    auto it = violating_paths.begin();
+    while (it != violating_paths.end()) {
+      if ((*it)->slack(sta_) >= 0) {
+        it = violating_paths.erase(it);
+      } else {
+        ++it;
+      }
+    }
     std::stable_sort(violating_paths.begin(),
                    violating_paths.end(),
                    [this](const auto& path1, const auto& path2) {
                      return path1->slack(sta_) < path2->slack(sta_);
                    });
-    Path* end_path = violating_paths.front();
-    violating_paths.erase(violating_paths.begin());
-    std::cout << "path: " << end_path->vertex(sta_)->name(network_) << " " << end_path->slack(sta_) << std::endl;
-
     fallback_ = false;
+    Path* end_path = violating_paths.front();
     Vertex* end = end_path->vertex(sta_);
     Slack end_slack = sta_->vertexSlack(end, max_);
     Slack worst_slack;
     Vertex* worst_vertex;
+    violating_paths.erase(violating_paths.begin());
+    std::cout << "path: " << end_path->vertex(sta_)->name(network_) << " " << end_path->slack(sta_) << std::endl;
+
     sta_->worstSlack(max_, worst_slack, worst_vertex);
     debugPrint(logger_,
                RSZ,
@@ -306,30 +314,30 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
       if (verbose || opto_iteration == 1) {
         printProgress(opto_iteration, true, false, false, num_viols);
       }
-      if (terminateProgress(opto_iteration,
-                            initial_tns,
-                            prev_tns,
-                            fix_rate_threshold,
-                            end_index,
-                            max_end_count)) {
-        if (prev_termination) {
-          // Abort entire fixing if no progress for 200 iterations
-          two_cons_terminations = true;
-        } else {
-          prev_termination = true;
-        }
+    //   if (terminateProgress(opto_iteration,
+    //                         initial_tns,
+    //                         prev_tns,
+    //                         fix_rate_threshold,
+    //                         end_index,
+    //                         max_end_count)) {
+    //     if (prev_termination) {
+    //       // Abort entire fixing if no progress for 200 iterations
+    //       two_cons_terminations = true;
+    //     } else {
+    //       prev_termination = true;
+    //     }
 
-        // Restore to previous good checkpoint
-        debugPrint(logger_,
-                   RSZ,
-                   "repair_setup",
-                   2,
-                   "Restoring best slack end slack {} worst slack {}",
-                   delayAsString(prev_end_slack, sta_, digits),
-                   delayAsString(prev_worst_slack, sta_, digits));
-        resizer_->journalRestore();
-        break;
-      }
+    //     // Restore to previous good checkpoint
+    //     debugPrint(logger_,
+    //                RSZ,
+    //                "repair_setup",
+    //                2,
+    //                "Restoring best slack end slack {} worst slack {}",
+    //                delayAsString(prev_end_slack, sta_, digits),
+    //                delayAsString(prev_worst_slack, sta_, digits));
+    //     resizer_->journalRestore();
+    //     break;
+    //   }
       if (opto_iteration % opto_small_interval_ == 0) {
         prev_termination = false;
       }
@@ -834,18 +842,18 @@ bool RepairSetup::terminateProgress(const int iteration,
   }
   if (iteration % opto_small_interval_ == 0) {
     float curr_tns = sta_->totalNegativeSlack(max_);
-    // float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
+    float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
     prev_tns = curr_tns;
-    // if (iteration > 1000  // allow for some initial fixing for 1000 iterations
-    //     && inc_fix_rate < fix_rate_threshold) {
-    //   // clang-format off
-    //   debugPrint(logger_, RSZ, "repair_setup", 1, "bailing out at iter {}"
-    //              " because incr fix rate {:0.2f}% is < {:0.2f}% [endpt {}/{}]",
-    //              iteration, inc_fix_rate*100, fix_rate_threshold*100,
-    //              endpt_index, num_endpts);
-    //   // clang-format on
-    //   return true;
-    // }
+    if (iteration > 1000  // allow for some initial fixing for 1000 iterations
+        && inc_fix_rate < fix_rate_threshold) {
+      // clang-format off
+      debugPrint(logger_, RSZ, "repair_setup", 1, "bailing out at iter {}"
+                 " because incr fix rate {:0.2f}% is < {:0.2f}% [endpt {}/{}]",
+                 iteration, inc_fix_rate*100, fix_rate_threshold*100,
+                 endpt_index, num_endpts);
+      // clang-format on
+      return true;
+    }
   }
   return false;
 }
@@ -973,8 +981,7 @@ void RepairSetup::repairSetupLastGasp(const OptoParams& params, int& num_viols)
       curr_tns = sta_->totalNegativeSlack(max_);
 
       // Accept only moves that improve both WNS and TNS
-      if (fuzzyGreaterEqual(curr_worst_slack, prev_worst_slack)
-          && fuzzyGreaterEqual(curr_tns, prev_tns)) {
+      if (fuzzyGreaterEqual(curr_tns, prev_tns)) {
         // clang-format off
         debugPrint(logger_, RSZ, "repair_setup", 1, "sizing move accepted for "
                    "endpoint {} pass {} because WNS improved to {:0.3f} and "

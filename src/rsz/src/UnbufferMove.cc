@@ -77,7 +77,7 @@ bool UnbufferMove::doMove(const Path* drvr_path,
     } else if (resizer_->size_up_move->hasMoves(drvr)) {
       reason = "it has been resized";
     }
-    if (!reason.empty()) {
+    if (reason.empty()) {
       debugPrint(logger_,
                  RSZ,
                  "repair_setup",

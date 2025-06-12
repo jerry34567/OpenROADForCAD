@@ -78,6 +78,7 @@ bool UnbufferMove::doMove(const Path* drvr_path,
       reason = "it has been resized";
     }
     if (!reason.empty()) {
+      // reason = "it is from original circuit";
       debugPrint(logger_,
                  RSZ,
                  "repair_setup",

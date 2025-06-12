@@ -18,6 +18,7 @@
 
 #include "AbstractSteinerRenderer.h"
 #include "BufferMove.hh"
+#include "SABufferMove.hh"
 #include "BufferedNet.hh"
 #include "CloneMove.hh"
 #include "RecoverPower.hh"
@@ -140,6 +141,7 @@ Resizer::~Resizer()
   delete repair_hold_;
   delete target_load_map_;
   delete buffer_move;
+  delete sabuffer_move;
   delete clone_move;
   delete size_down_move;
   delete size_up_move;
@@ -172,6 +174,7 @@ void Resizer::init(Logger* logger,
   db_network_->addObserver(this);
 
   buffer_move = new BufferMove(this);
+  sabuffer_move = new SABufferMove(this);
   clone_move = new CloneMove(this);
   size_down_move = new SizeDownMove(this);
   size_up_move = new SizeUpMove(this);
@@ -3690,7 +3693,8 @@ bool Resizer::repairSetup(double setup_margin,
                           bool skip_buffering,
                           bool skip_split_load,
                           bool skip_buffer_removal,
-                          bool skip_last_gasp)
+                          bool skip_last_gasp,
+                          bool skip_sabuffering)
 {
   utl::SetAndRestore set_match_footprint(match_cell_footprint_,
                                          match_cell_footprint);
@@ -3712,7 +3716,8 @@ bool Resizer::repairSetup(double setup_margin,
                                     skip_buffering,
                                     skip_split_load,
                                     skip_buffer_removal,
-                                    skip_last_gasp);
+                                    skip_last_gasp,
+                                    skip_sabuffering);
 }
 
 void Resizer::reportSwappablePins()
@@ -3816,6 +3821,7 @@ void Resizer::journalBegin()
   odb::dbDatabase::beginEco(block_);
 
   buffer_move->undoMoves();
+  sabuffer_move->undoMoves();
   size_down_move->undoMoves();
   size_up_move->undoMoves();
   clone_move->undoMoves();
@@ -3837,20 +3843,21 @@ void Resizer::journalEnd()
   move_count_ += size_up_move->numPendingMoves();
   move_count_ += size_down_move->numPendingMoves();
   move_count_ += buffer_move->numPendingMoves();
+  move_count_ += sabuffer_move->numPendingMoves();
   move_count_ += clone_move->numPendingMoves();
   move_count_ += swap_pins_move->numPendingMoves();
   move_count_ += unbuffer_move->numPendingMoves();
-
   debugPrint(
       logger_,
       RSZ,
       "opt_moves",
       2,
-      "COMMIT {} moves: up {} down {} buffer {} clone {} swap {} unbuf {}",
+      "COMMIT {} moves: up {} down {} buffer {} sabuffer {} clone {} swap {} unbuf {}",
       move_count_,
       size_up_move->numPendingMoves(),
       size_down_move->numPendingMoves(),
       buffer_move->numPendingMoves(),
+      sabuffer_move->numPendingMoves(),
       clone_move->numPendingMoves(),
       swap_pins_move->numPendingMoves(),
       unbuffer_move->numPendingMoves());
@@ -3858,6 +3865,7 @@ void Resizer::journalEnd()
   accepted_move_count_ += move_count_;
 
   buffer_move->commitMoves();
+  sabuffer_move->commitMoves();
   size_up_move->commitMoves();
   size_down_move->commitMoves();
   clone_move->commitMoves();
@@ -3869,7 +3877,7 @@ void Resizer::journalEnd()
              RSZ,
              "opt_moves",
              1,
-             "TOTAL {} moves (acc {} rej {}):  up {} down {} buffer {} clone "
+             "TOTAL {} moves (acc {} rej {}):  up {} down {} buffer {} sabuffer {} clone "
              "{} swap {} unbuf {}",
              accepted_move_count_ + rejected_move_count_,
              accepted_move_count_,
@@ -3877,6 +3885,7 @@ void Resizer::journalEnd()
              size_up_move->numCommittedMoves(),
              size_down_move->numCommittedMoves(),
              buffer_move->numCommittedMoves(),
+             sabuffer_move->numCommittedMoves(),
              clone_move->numCommittedMoves(),
              swap_pins_move->numCommittedMoves(),
              unbuffer_move->numCommittedMoves());
@@ -3924,30 +3933,32 @@ void Resizer::journalRestore()
       RSZ,
       "journal",
       1,
-      "Undid {} sizing {} buffering {} cloning {} swaps {} buf removal",
+      "Undid {} sizing {} buffering {} cloning {} swaps {} buf removal {} sabuf",
       size_up_move->numPendingMoves() + size_down_move->numPendingMoves(),
       buffer_move->numPendingMoves(),
       clone_move->numPendingMoves(),
       swap_pins_move->numPendingMoves(),
-      unbuffer_move->numPendingMoves());
+      unbuffer_move->numPendingMoves(),
+      sabuffer_move->numPendingMoves());
 
   int move_count_ = 0;
   move_count_ += size_down_move->numPendingMoves();
   move_count_ += size_up_move->numPendingMoves();
   move_count_ += buffer_move->numPendingMoves();
+  move_count_ += sabuffer_move->numPendingMoves();
   move_count_ += clone_move->numPendingMoves();
   move_count_ += swap_pins_move->numPendingMoves();
   move_count_ += unbuffer_move->numPendingMoves();
-
   debugPrint(logger_,
              RSZ,
              "opt_moves",
              2,
-             "UNDO {} moves: up {} down {} buffer {} clone {} swap {} unbuf {}",
+             "UNDO {} moves: up {} down {} buffer {} sabuffer {} clone {} swap {} unbuf {}",
              move_count_,
              size_up_move->numPendingMoves(),
              size_down_move->numPendingMoves(),
              buffer_move->numPendingMoves(),
+             sabuffer_move->numPendingMoves(),
              clone_move->numPendingMoves(),
              swap_pins_move->numPendingMoves(),
              unbuffer_move->numPendingMoves());
@@ -3957,16 +3968,16 @@ void Resizer::journalRestore()
   size_down_move->undoMoves();
   size_up_move->undoMoves();
   buffer_move->undoMoves();
+  sabuffer_move->undoMoves();
   clone_move->undoMoves();
   split_load_move->undoMoves();
   swap_pins_move->undoMoves();
   unbuffer_move->undoMoves();
-
   debugPrint(logger_,
              RSZ,
              "opt_moves",
              1,
-             "TOTAL {} moves (acc {} rej {}):  up {} down {} buffer {} clone "
+             "TOTAL {} moves (acc {} rej {}):  up {} down {} buffer {} sabuffer {} clone "
              "{} swap {} unbuf {}",
              accepted_move_count_ + rejected_move_count_,
              accepted_move_count_,
@@ -3974,6 +3985,7 @@ void Resizer::journalRestore()
              size_up_move->numCommittedMoves(),
              size_down_move->numCommittedMoves(),
              buffer_move->numCommittedMoves(),
+             sabuffer_move->numCommittedMoves(),
              clone_move->numCommittedMoves(),
              swap_pins_move->numCommittedMoves(),
              unbuffer_move->numCommittedMoves());
@@ -3994,7 +4006,6 @@ void Resizer::journalRestoreTest()
   int cloned_gate_count_old = clone_move->numMoves();
   int swap_pin_count_old = swap_pins_move->numMoves();
   int removed_buffer_count_old = unbuffer_move->numMoves();
-
   journalRestore();
 
   logger_->report(

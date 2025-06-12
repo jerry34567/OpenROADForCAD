@@ -525,7 +525,8 @@ repair_setup(double setup_margin,
              bool skip_buffering,
              bool skip_split_load,
              bool skip_buffer_removal,
-             bool skip_last_gasp)
+             bool skip_last_gasp,
+             bool skip_sabuffering)
 {
   ensureLinked();
   Resizer *resizer = getResizer();
@@ -537,7 +538,7 @@ repair_setup(double setup_margin,
                        skip_gate_sizing,
                        skip_size_down,
                        skip_buffering, skip_split_load, skip_buffer_removal,
-                       skip_last_gasp);
+                       skip_last_gasp,skip_sabuffering);
 }
 
 void

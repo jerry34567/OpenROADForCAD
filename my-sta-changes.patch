@@ -1,0 +1,61 @@
+diff --git a/include/sta/Sta.hh b/include/sta/Sta.hh
+index f4cc39b6..ca9696e7 100644
+--- a/include/sta/Sta.hh
++++ b/include/sta/Sta.hh
+@@ -1007,6 +1007,10 @@ public:
+ 		 const MinMax *min_max);
+   Slack vertexSlack(Vertex *vertex,
+ 		    const MinMax *min_max);
++  Slack vertexTotalSlack(Vertex *vertex,
++                         const MinMax *min_max);
++  PathSeq vertexNegPaths(Vertex *vertex,
++                         const MinMax *min_max);
+   Slack vertexSlack(Vertex *vertex,
+ 		    const RiseFall *rf,
+ 		    const MinMax *min_max);
+diff --git a/search/Sta.cc b/search/Sta.cc
+index 12685f9b..6e6d54d4 100644
+--- a/search/Sta.cc
++++ b/search/Sta.cc
+@@ -3053,6 +3053,41 @@ Sta::vertexSlack(Vertex *vertex,
+   return slack;
+ }
+ 
++Slack
++Sta::vertexTotalSlack(Vertex *vertex,
++		 const MinMax *min_max)
++{
++  findRequired(vertex);
++  const MinMax *min = MinMax::min();
++  Slack slack = 0;
++  VertexPathIterator path_iter(vertex, this);
++  while (path_iter.hasNext()) {
++    Path *path = path_iter.next();
++    if (path->minMax(this) == min_max) {
++      Slack path_slack = path->slack(this);
++      if (path_slack < 0) {
++        slack += path_slack;
++      }
++    }
++  }
++  return slack;
++}
++
++PathSeq
++Sta::vertexNegPaths(Vertex *vertex,
++                    const MinMax *min_max)
++{
++  PathSeq paths;
++  VertexPathIterator path_iter(vertex, this);
++  while (path_iter.hasNext()) { 
++    Path *path = path_iter.next();
++    if (path->slack(this) < 0) {
++      paths.push_back(path);
++    }
++  }
++  return paths;
++}
++
+ Slack
+ Sta::vertexSlack(Vertex *vertex,
+ 		 const RiseFall *rf,

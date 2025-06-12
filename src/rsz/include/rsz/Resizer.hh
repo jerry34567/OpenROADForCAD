@@ -113,6 +113,7 @@ class ResizerObserver;
 
 class CloneMove;
 class BufferMove;
+class SABufferMove;
 class SplitLoadMove;
 class SizeDownMove;
 class SizeUpMove;
@@ -158,7 +159,8 @@ enum class MoveType
   SIZEUP,
   SIZEDOWN,
   CLONE,
-  SPLIT
+  SPLIT,
+  SABUFFER
 };
 
 class OdbCallBack;
@@ -288,7 +290,8 @@ class Resizer : public dbStaState, public dbNetworkObserver
                    bool skip_buffering,
                    bool skip_split_load,
                    bool skip_buffer_removal,
-                   bool skip_last_gasp);
+                   bool skip_last_gasp,
+                   bool skip_sabuffering);
   // For testing.
   void repairSetup(const Pin* end_pin);
   // For testing.
@@ -815,6 +818,7 @@ class Resizer : public dbStaState, public dbNetworkObserver
   CloneMove* clone_move = nullptr;
   SplitLoadMove* split_load_move = nullptr;
   BufferMove* buffer_move = nullptr;
+  SABufferMove* sabuffer_move = nullptr;
   SizeDownMove* size_down_move = nullptr;
   SizeUpMove* size_up_move = nullptr;
   SwapPinsMove* swap_pins_move = nullptr;
@@ -832,6 +836,7 @@ class Resizer : public dbStaState, public dbNetworkObserver
   friend class SteinerTree;
   friend class BaseMove;
   friend class BufferMove;
+  friend class SABufferMove;
   friend class SizeDownMove;
   friend class SizeUpMove;
   friend class SplitLoadMove;

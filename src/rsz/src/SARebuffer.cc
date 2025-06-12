@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include "BufferMove.hh"
+#include "SABufferMove.hh"
 #include "BufferedNet.hh"
 #include "db_sta/dbNetwork.hh"
 #include "rsz/Resizer.hh"
@@ -45,11 +45,11 @@ using sta::RiseFallBoth;
 //
 // https://stackoverflow.com/questions/2067988/how-to-make-a-recursive-lambda
 template <class F>
-struct visitor
+struct SA_visitor
 {
   F f;
   int level = 0;
-  explicit visitor(F&& f) : f(std::forward<F>(f)) {}
+  explicit SA_visitor(F&& f) : f(std::forward<F>(f)) {}
   template <class... Args>
   decltype(auto) operator()(Args&&... args)
   {
@@ -60,18 +60,18 @@ struct visitor
   }
 
   // delete the copy constructor
-  visitor(const visitor&) = delete;
-  visitor& operator=(const visitor&) = delete;
+  SA_visitor(const SA_visitor&) = delete;
+  SA_visitor& operator=(const SA_visitor&) = delete;
 };
 
 template <typename F, class... Args>
-decltype(auto) visitTree(F&& f, Args&&... args)
+decltype(auto) SA_visitTree(F&& f, Args&&... args)
 {
-  visitor<std::decay_t<F>> v{std::forward<F>(f)};
+  SA_visitor<std::decay_t<F>> v{std::forward<F>(f)};
   return v(std::forward<Args>(args)...);
 }
 
-void pruneCapVsSlackOptions(StaState* sta, BufferedNetSeq& options)
+void SA_pruneCapVsSlackOptions(StaState* sta, BufferedNetSeq& options)
 {
   // Prune the options if there exists another option with
   // larger slack and smaller capacitance.
@@ -109,7 +109,7 @@ void pruneCapVsSlackOptions(StaState* sta, BufferedNetSeq& options)
   options.resize(si);
 }
 
-void pruneCapVsAreaOptions(StaState* sta, BufferedNetSeq& options)
+void SA_pruneCapVsAreaOptions(StaState* sta, BufferedNetSeq& options)
 {
   sort(options.begin(),
        options.end(),
@@ -139,7 +139,7 @@ void pruneCapVsAreaOptions(StaState* sta, BufferedNetSeq& options)
 
 // Returns the most specific transition that subsumes both `a` and `b`
 // Transitions are one of: rise, fall, both, null
-static const RiseFallBoth* commonTransition(const RiseFallBoth* a,
+static const RiseFallBoth* SA_commonTransition(const RiseFallBoth* a,
                                             const RiseFallBoth* b)
 {
   if (a == b) {
@@ -154,7 +154,7 @@ static const RiseFallBoth* commonTransition(const RiseFallBoth* a,
   return RiseFallBoth::riseFall();
 }
 
-void BufferMove::annotateLoadSlacks(BufferedNetPtr& bnet, Vertex* root_vertex)
+void SABufferMove::annotateLoadSlacks(BufferedNetPtr& bnet, Vertex* root_vertex)
 {
   using BnetType = BufferedNetType;
   using BnetPtr = BufferedNetPtr;
@@ -163,7 +163,7 @@ void BufferMove::annotateLoadSlacks(BufferedNetPtr& bnet, Vertex* root_vertex)
     arrival_paths_[rf_index] = nullptr;
   }
 
-  visitTree(
+  SA_visitTree(
       [&](auto& recurse, int level, const BnetPtr& bnet) -> int {
         switch (bnet->type()) {
           case BnetType::wire:
@@ -199,20 +199,20 @@ void BufferMove::annotateLoadSlacks(BufferedNetPtr& bnet, Vertex* root_vertex)
             return 1;
           }
           default:
-            logger_->error(RSZ, 87, "unhandled BufferedNet type");
+            logger_->error(RSZ, 147, "unhandled BufferedNet type");
         }
       },
       bnet);
 }
 
 // Find initial timing-optimized rebuffering choice
-BufferedNetPtr BufferMove::rebufferForTiming(const BufferedNetPtr& bnet, const Pin* drvr_pin)
+BufferedNetPtr SABufferMove::rebufferForTiming(const BufferedNetPtr& bnet, const Pin* drvr_pin)
 {
   using BnetType = BufferedNetType;
   using BnetSeq = BufferedNetSeq;
   using BnetPtr = BufferedNetPtr;
 
-  BnetSeq Z = visitTree(
+  BnetSeq Z = SA_visitTree(
       [this](auto& recurse, const int level, const BnetPtr& bnet) -> BnetSeq {
         switch (bnet->type()) {
           case BnetType::wire: {
@@ -241,14 +241,14 @@ BufferedNetPtr BufferMove::rebufferForTiming(const BufferedNetPtr& bnet, const P
                                                p,
                                                q,
                                                resizer_);
-                junc->setSlackTransition(commonTransition(
+                junc->setSlackTransition(SA_commonTransition(
                     p->slackTransition(), q->slackTransition()));
                 junc->setSlack(min_req->slack());
                 Z.push_back(std::move(junc));
               }
             }
 
-            pruneCapVsSlackOptions(sta_, Z);
+            SA_pruneCapVsSlackOptions(sta_, Z);
             return Z;
           }
 
@@ -266,7 +266,7 @@ BufferedNetPtr BufferMove::rebufferForTiming(const BufferedNetPtr& bnet, const P
             return Z;
           }
           default: {
-            logger_->critical(RSZ, 71, "unhandled BufferedNet type");
+            logger_->critical(RSZ, 106, "unhandled BufferedNet type");
           }
         }
       },
@@ -310,7 +310,7 @@ BufferedNetPtr BufferMove::rebufferForTiming(const BufferedNetPtr& bnet, const P
 }
 
 // Recover area on a rebuffering choice without regressing timing
-BufferedNetPtr BufferMove::recoverArea(const BufferedNetPtr& bnet,
+BufferedNetPtr SABufferMove::recoverArea(const BufferedNetPtr& bnet,
                                        const Delay slack_target,
                                        const float alpha)
 {
@@ -322,7 +322,7 @@ BufferedNetPtr BufferMove::recoverArea(const BufferedNetPtr& bnet,
   std::tie(std::ignore, slack_correction) = drvrPinTiming(bnet);
 
   // spread down arrival delay
-  visitTree(
+  SA_visitTree(
       [](auto& recurse,
          const int level,
          const BnetPtr& bnet,
@@ -345,7 +345,7 @@ BufferedNetPtr BufferMove::recoverArea(const BufferedNetPtr& bnet,
       bnet,
       -slack_correction);
 
-  BnetSeq Z = visitTree(
+  BnetSeq Z = SA_visitTree(
       [&](auto& recurse,
           const int level,
           const BnetPtr& bnet) -> BufferedNetSeq {
@@ -407,7 +407,7 @@ BufferedNetPtr BufferMove::recoverArea(const BufferedNetPtr& bnet,
 
                 auto junc = make_shared<BufferedNet>(
                     BnetType::junction, bnet->location(), p, q, resizer_);
-                junc->setSlackTransition(commonTransition(
+                junc->setSlackTransition(SA_commonTransition(
                     p->slackTransition(), q->slackTransition()));
                 junc->setSlack(min_req->slack());
 
@@ -434,7 +434,7 @@ BufferedNetPtr BufferMove::recoverArea(const BufferedNetPtr& bnet,
               auto junc = make_shared<BufferedNet>(
                   BnetType::junction, bnet->location(), p, q, resizer_);
               junc->setSlackTransition(
-                  commonTransition(p->slackTransition(), q->slackTransition()));
+                  SA_commonTransition(p->slackTransition(), q->slackTransition()));
               junc->setSlack(min_req->slack());
 
               debugPrint(logger_,
@@ -449,7 +449,7 @@ BufferedNetPtr BufferMove::recoverArea(const BufferedNetPtr& bnet,
               Z.push_back(std::move(junc));
             }
 
-            pruneCapVsAreaOptions(sta_, Z);
+            SA_pruneCapVsAreaOptions(sta_, Z);
             return Z;
           }
           case BnetType::load: {
@@ -464,7 +464,7 @@ BufferedNetPtr BufferMove::recoverArea(const BufferedNetPtr& bnet,
             return {bnet};
           }
           default: {
-            logger_->critical(RSZ, 150, "unhandled BufferedNet type");
+            logger_->critical(RSZ, 152, "unhandled BufferedNet type");
           }
         }
       },
@@ -520,13 +520,13 @@ BufferedNetPtr BufferMove::recoverArea(const BufferedNetPtr& bnet,
   return nullptr;
 }
 
-Delay BufferMove::requiredDelay(const BufferedNetPtr& bnet)
+Delay SABufferMove::requiredDelay(const BufferedNetPtr& bnet)
 {
   using BnetType = BufferedNetType;
   using BnetPtr = BufferedNetPtr;
 
   Delay worst_load_slack = INF;
-  visitTree(
+  SA_visitTree(
       [&](auto& recurse, int level, const BnetPtr& bnet) -> int {
         switch (bnet->type()) {
           case BnetType::wire:
@@ -548,7 +548,7 @@ Delay BufferMove::requiredDelay(const BufferedNetPtr& bnet)
   return worst_load_slack - bnet->slack();
 }
 
-Slack BufferMove::calculateSubtreeTns(BufferedNetPtr& bnet, const Pin* drvr_pin)
+Slack SABufferMove::calculateSubtreeTns(BufferedNetPtr& bnet, const Pin* drvr_pin)
 {
   using BnetType = BufferedNetType;
   using BnetPtr = BufferedNetPtr;
@@ -556,7 +556,7 @@ Slack BufferMove::calculateSubtreeTns(BufferedNetPtr& bnet, const Pin* drvr_pin)
   Slack tns = 0.0;
 //   std::cout << "calculateSubtreeTns" << std::endl;
   annotateLoadSlacks(bnet, graph_->pinDrvrVertex(drvr_pin));
-  visitTree(
+  SA_visitTree(
       [&](auto& recurse, int level, const BnetPtr& bnet) -> int {
         // for (int i = 0; i < level; i++) {
         //   std::cout << "  ";
@@ -605,7 +605,7 @@ Slack BufferMove::calculateSubtreeTns(BufferedNetPtr& bnet, const Pin* drvr_pin)
 }
 
 // Return inserted buffer count.
-int BufferMove::rebuffer(const Pin* drvr_pin)
+int SABufferMove::rebuffer(const Pin* drvr_pin, int drvr_index)
 {
   int inserted_buffer_count = 0;
   Net* net;
@@ -671,7 +671,7 @@ int BufferMove::rebuffer(const Pin* drvr_pin)
         if (!best_option) {
           logger_->warn(
               RSZ,
-              145,
+              151,
               "area recovery lost the ball in rebuffering for driver {}",
               network_->pathName(drvr_pin));
         }
@@ -700,7 +700,8 @@ int BufferMove::rebuffer(const Pin* drvr_pin)
                                                 1,
                                                 parent,
                                                 drvr_op_iterm,
-                                                db_modnet);
+                                                db_modnet,
+                                                drvr_index);
         if (inserted_buffer_count > 0) {
           rebuffer_net_count_++;
           debugPrint(logger_,
@@ -717,7 +718,7 @@ int BufferMove::rebuffer(const Pin* drvr_pin)
       }
     } else {
       logger_->warn(RSZ,
-                    75,
+                    100,
                     "makeBufferedNet failed for driver {}",
                     network_->pathName(drvr_pin));
     }
@@ -725,14 +726,14 @@ int BufferMove::rebuffer(const Pin* drvr_pin)
   return inserted_buffer_count;
 }
 
-Slack BufferMove::slackAtDriverPin(const BufferedNetPtr& bnet)
+Slack SABufferMove::slackAtDriverPin(const BufferedNetPtr& bnet)
 {
   return slackAtDriverPin(bnet, -1);
 }
 
 // Returns: driver pin gate delay; slack correction to account for changed
 // driver pin load
-std::tuple<Delay, Delay> BufferMove::drvrPinTiming(const BufferedNetPtr& bnet)
+std::tuple<Delay, Delay> SABufferMove::drvrPinTiming(const BufferedNetPtr& bnet)
 {
   if (bnet->slackTransition() == nullptr) {
     return {0, 0};
@@ -778,7 +779,7 @@ std::tuple<Delay, Delay> BufferMove::drvrPinTiming(const BufferedNetPtr& bnet)
   return {delay, correction};
 }
 
-Slack BufferMove::slackAtDriverPin(const BufferedNetPtr& bnet,
+Slack SABufferMove::slackAtDriverPin(const BufferedNetPtr& bnet,
                                    // Only used for debug print.
                                    const int index)
 {
@@ -797,16 +798,16 @@ Slack BufferMove::slackAtDriverPin(const BufferedNetPtr& bnet,
   return slack;
 }
 
-// For testing.
-void BufferMove::rebufferNet(const Pin* drvr_pin)
-{
-  init();
-  IncrementalParasiticsGuard guard(resizer_);
-  int inserted_buffer_count_ = rebuffer(drvr_pin);
-  logger_->report("Inserted {} buffers.", inserted_buffer_count_);
-}
+// // For testing.
+// void SABufferMove::rebufferNet(const Pin* drvr_pin)
+// {
+//   init();
+//   IncrementalParasiticsGuard guard(resizer_);
+//   int inserted_buffer_count_ = rebuffer(drvr_pin);
+//   logger_->report("Inserted {} buffers.", inserted_buffer_count_);
+// }
 
-bool BufferMove::hasTopLevelOutputPort(Net* net)
+bool SABufferMove::hasTopLevelOutputPort(Net* net)
 {
   NetConnectedPinIterator* pin_iter = network_->connectedPinIterator(net);
   while (pin_iter->hasNext()) {
@@ -820,7 +821,7 @@ bool BufferMove::hasTopLevelOutputPort(Net* net)
   return false;
 }
 
-BufferedNetPtr BufferMove::addWire(const BufferedNetPtr& p,
+BufferedNetPtr SABufferMove::addWire(const BufferedNetPtr& p,
                                    const Point& wire_end,
                                    const int wire_layer,
                                    const int level)
@@ -853,7 +854,7 @@ BufferedNetPtr BufferMove::addWire(const BufferedNetPtr& p,
   return z;
 }
 
-Delay BufferMove::bufferDelay(LibertyCell* cell,
+Delay SABufferMove::bufferDelay(LibertyCell* cell,
                               const RiseFallBoth* rf,
                               float load_cap)
 {
@@ -878,7 +879,7 @@ Delay BufferMove::bufferDelay(LibertyCell* cell,
   return delay;
 }
 
-void BufferMove::addBuffers(
+void SABufferMove::addBuffers(
     BufferedNetSeq& Z1,
     const int level,
     const bool area_oriented /*=false*/,
@@ -979,7 +980,7 @@ void BufferMove::addBuffers(
   }
 }
 
-float BufferMove::bufferInputCapacitance(LibertyCell* buffer_cell,
+float SABufferMove::bufferInputCapacitance(LibertyCell* buffer_cell,
                                          const DcalcAnalysisPt* dcalc_ap)
 {
   LibertyPort *input, *output;
@@ -989,18 +990,19 @@ float BufferMove::bufferInputCapacitance(LibertyCell* buffer_cell,
   return corner_input->capacitance();
 }
 
-int BufferMove::rebufferTopDown(const BufferedNetPtr& choice,
+int SABufferMove::rebufferTopDown(const BufferedNetPtr& choice,
                                 Net* net,  // output of buffer.
                                 const int level,
                                 Instance* parent_in,
                                 odb::dbITerm* mod_net_drvr,
-                                odb::dbModNet* mod_net_in)
+                                odb::dbModNet* mod_net_in,
+                                int drvr_index)
 {
   // HFix, pass in the parent
   Instance* parent = parent_in;
   switch (choice->type()) {
     case BufferedNetType::buffer: {
-      const std::string buffer_name = resizer_->makeUniqueInstName("rebuffer");
+      const std::string buffer_name = resizer_->makeUniqueInstName("sarebuffer");
 
       // HFix: make net in hierarchy
       const std::string net_name = resizer_->makeUniqueNetName();
@@ -1009,7 +1011,7 @@ int BufferMove::rebufferTopDown(const BufferedNetPtr& choice,
       LibertyCell* buffer_cell = choice->bufferCell();
       Instance* buffer = resizer_->makeBuffer(
           buffer_cell, buffer_name.c_str(), parent, choice->location());
-
+      current_buf.at(drvr_index).push_back(buffer);
       resizer_->level_drvr_vertices_valid_ = false;
       LibertyPort *input, *output;
       buffer_cell->bufferPorts(input, output);
@@ -1065,7 +1067,7 @@ int BufferMove::rebufferTopDown(const BufferedNetPtr& choice,
       }
 
       const int buffer_count = rebufferTopDown(
-          choice->ref(), net2, level + 1, parent, buffer_op_iterm, mod_net_in);
+          choice->ref(), net2, level + 1, parent, buffer_op_iterm, mod_net_in, drvr_index);
 
       return buffer_count + 1;
     }
@@ -1073,7 +1075,7 @@ int BufferMove::rebufferTopDown(const BufferedNetPtr& choice,
     case BufferedNetType::wire:
       debugPrint(logger_, RSZ, "rebuffer", 3, "{:{}s}wire", "", level);
       return rebufferTopDown(
-          choice->ref(), net, level + 1, parent, mod_net_drvr, mod_net_in);
+          choice->ref(), net, level + 1, parent, mod_net_drvr, mod_net_in, drvr_index);
 
     case BufferedNetType::junction: {
       debugPrint(logger_, RSZ, "rebuffer", 3, "{:{}s}junction", "", level);
@@ -1083,13 +1085,15 @@ int BufferMove::rebufferTopDown(const BufferedNetPtr& choice,
                              level + 1,
                              parent,
                              mod_net_drvr,
-                             mod_net_in)
+                             mod_net_in,
+                             drvr_index)
              + rebufferTopDown(choice->ref2(),
                                net,
                                level + 1,
                                parent,
                                mod_net_drvr,
-                               mod_net_in);
+                               mod_net_in,
+                               drvr_index);
     }
 
     case BufferedNetType::load: {

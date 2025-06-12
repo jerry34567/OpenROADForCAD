@@ -14,6 +14,7 @@ add_library(rsz_lib
     BaseMove.cc
     BufferedNet.cc
     BufferMove.cc
+    SABufferMove.cc
     CloneMove.cc
     PreChecks.cc      
     RecoverPower.cc    
@@ -21,6 +22,7 @@ add_library(rsz_lib
     RepairHold.cc
     RepairSetup.cc
     Rebuffer.cc
+    SARebuffer.cc
     SteinerTree.cc
     SizeDownMove.cc
     SizeUpMove.cc

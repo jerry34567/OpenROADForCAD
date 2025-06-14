@@ -110,7 +110,6 @@ class RepairDesign;
 class RepairSetup;
 class RepairHold;
 class ResizerObserver;
-
 class CloneMove;
 class BufferMove;
 class SABufferMove;
@@ -119,6 +118,7 @@ class SizeDownMove;
 class SizeUpMove;
 class SwapPinsMove;
 class UnbufferMove;
+class GAMove;
 class RegisterOdbCallbackGuard;
 
 class NetHash
@@ -148,6 +148,27 @@ struct ParasiticsCapacitance
 {
   double h_cap;
   double v_cap;
+};
+
+// Genetic Algorithm structures for gate sizing optimization
+struct GaParams
+{
+  int population_size;
+  int max_generations;
+  float crossover_rate;
+  float mutation_rate;
+  float elitism_rate;
+  bool verbose;
+
+  GaParams()
+      : population_size(50),
+        max_generations(100), 
+        crossover_rate(0.8f),
+        mutation_rate(0.1f),
+        elitism_rate(0.1f),
+        verbose(false)
+  {
+  }
 };
 
 enum class MoveType
@@ -288,10 +309,12 @@ class Resizer : public dbStaState, public dbNetworkObserver
                    bool skip_gate_sizing,
                    bool skip_size_down,
                    bool skip_buffering,
-                   bool skip_split_load,
+                   bool skip_split_load,  
                    bool skip_buffer_removal,
                    bool skip_last_gasp,
-                   bool skip_sabuffering);
+                   bool skip_sabuffering,
+                   bool ga_enabled,
+                   bool shuffle_enabled);
   // For testing.
   void repairSetup(const Pin* end_pin);
   // For testing.
@@ -299,6 +322,10 @@ class Resizer : public dbStaState, public dbNetworkObserver
   // Rebuffer one net (for testing).
   // resizerPreamble() required.
   void rebufferNet(const Pin* drvr_pin);
+  // For testing.
+  bool gateSizingWithGa(const rsz::GaParams& ga_params,
+                        const float setup_slack_margin,
+                        const bool verbose);
 
   ////////////////////////////////////////////////////////////////
 
@@ -823,6 +850,8 @@ class Resizer : public dbStaState, public dbNetworkObserver
   SizeUpMove* size_up_move = nullptr;
   SwapPinsMove* swap_pins_move = nullptr;
   UnbufferMove* unbuffer_move = nullptr;
+  GAMove* ga_move = nullptr;
+  int restore_count_ = 0;
   int accepted_move_count_ = 0;
   int rejected_move_count_ = 0;
 
@@ -843,6 +872,7 @@ class Resizer : public dbStaState, public dbNetworkObserver
   friend class CloneMove;
   friend class SwapPinsMove;
   friend class UnbufferMove;
+  friend class GAMove;
   friend class IncrementalParasiticsGuard;
 };
 

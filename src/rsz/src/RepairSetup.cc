@@ -110,6 +110,7 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
   max_repairs_per_pass_ = max_repairs_per_pass;
   resizer_->buffer_moved_into_core_ = false;
   ga_enabled_ = ga_enabled;
+  sa_enabled_ = sabuffering_enabled;
   shuffle_enabled_ = shuffle_enabled;
   if (!sequence.empty()) {
     move_sequence.clear();
@@ -890,6 +891,18 @@ bool RepairSetup::repairPath(Path* path,
                repairs_per_pass,
                load_delays.size());
     bool do_ga = true;
+    if(sa_enabled_)
+    {
+      auto start_time = std::chrono::high_resolution_clock::now();
+      resizer_->sabuffer_move->doMove(path,
+                          0,
+                          path_slack,
+                          &expanded,
+                          setup_slack_margin);
+      auto end_time = std::chrono::high_resolution_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
+      std::cout << "SA Buffer Move runtime: " << duration << " seconds" << std::endl;
+    }
     for (const auto& [drvr_index, ignored] : load_delays) {
       if (changed >= repairs_per_pass) {
         break;
@@ -909,7 +922,6 @@ bool RepairSetup::repairPath(Path* path,
                  drvr_cell ? drvr_cell->name() : "none",
                  fanout,
                  drvr_index);
-
       for (BaseMove* move : move_sequence) {
         debugPrint(logger_,
                    RSZ,

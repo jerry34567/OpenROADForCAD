@@ -172,6 +172,7 @@ class RepairSetup : public sta::dbStaState
 
   std::vector<BaseMove*> move_sequence;
 
+  bool sa_enabled_ = false;
   bool ga_enabled_ = false;
   bool shuffle_enabled_ = false;
 

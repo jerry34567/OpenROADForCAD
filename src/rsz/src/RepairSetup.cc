@@ -211,13 +211,18 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
   for (Vertex* end : *endpoints) {
     const Slack end_slack = sta_->vertexSlack(end, max_);
     VertexPathIterator path_iter(end, this);
-    // std::cout << "end: " << end->name(network_) << " " << end_slack << std::endl;
+    PathSeq paths;
     while (path_iter.hasNext()) {
       Path* path = path_iter.next();
-      // std::cout << "path: " << path->vertex(sta_)->name(network_) << " " << path->slack(sta_) << std::endl;
-      if (path->slack(sta_) < setup_slack_margin) {
-        violating_paths.push_back(path);
-      }
+      paths.push_back(path);
+    }
+    std::stable_sort(paths.begin(),
+                     paths.end(),
+                     [this](const auto& path1, const auto& path2) {
+                       return path1->slack(sta_) < path2->slack(sta_);
+                     });
+    for (int i = 0; i < 5 && i < paths.size(); i++) {
+      violating_paths.push_back(paths[i]);
     }
   }
   std::stable_sort(violating_paths.begin(),

@@ -199,6 +199,8 @@ class RepairSetup : public sta::dbStaState
   static constexpr float inc_fix_rate_threshold_
       = 0.0001;  // default fix rate threshold = 0.01%
   static constexpr int max_last_gasp_passes_ = 10;
+
+  void writeEcoChangelist(const char* filename);
 };
 
 }  // namespace rsz

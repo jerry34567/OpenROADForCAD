@@ -466,6 +466,17 @@ class Resizer : public dbStaState, public dbNetworkObserver
   static MoveType parseMove(const std::string& s);
   static std::vector<MoveType> parseMoveSequence(const std::string& sequence);
 
+  // ECO changes handling
+  void addEcoChange(const std::string& change) { _temp_eco_changes.push_back(change); }
+  const std::vector<std::string>& getEcoChanges() const { return _eco_changes; }
+  void clearEcoChanges() { _eco_changes.clear(); _temp_eco_changes.clear(); }
+
+  void recordBufferInsertion(const std::vector<const Pin*>& load_pins,
+                            LibertyCell* buffer_cell,
+                            const char* buffer_name,
+                            const char* buffered_net);
+  void recordSizeChange(Instance* inst, const LibertyCell* new_cell);
+
  protected:
   void init();
   double computeDesignArea();
@@ -874,6 +885,9 @@ class Resizer : public dbStaState, public dbNetworkObserver
   friend class UnbufferMove;
   friend class GAMove;
   friend class IncrementalParasiticsGuard;
+
+  std::vector<std::string> _eco_changes;  // Committed ECO changes
+  std::vector<std::string> _temp_eco_changes;  // Temporary ECO changes
 };
 
 class IncrementalParasiticsGuard

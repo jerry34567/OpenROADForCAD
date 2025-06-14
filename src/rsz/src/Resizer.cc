@@ -3843,6 +3843,9 @@ void Resizer::journalBegin()
   swap_pins_move->undoMoves();
   unbuffer_move->undoMoves();
   ga_move->undoMoves();
+  
+  // Clear temporary ECO changes when starting a new journal
+  _temp_eco_changes.clear();
 }
 
 void Resizer::journalEnd()
@@ -3892,6 +3895,10 @@ void Resizer::journalEnd()
   swap_pins_move->commitMoves();
   unbuffer_move->commitMoves();
   ga_move->commitMoves();
+
+  // Commit temporary ECO changes to permanent changes
+  _eco_changes.insert(_eco_changes.end(), _temp_eco_changes.begin(), _temp_eco_changes.end());
+  _temp_eco_changes.clear();
 
   debugPrint(logger_,
              RSZ,
@@ -3945,6 +3952,9 @@ void Resizer::journalRestore()
   // Odb callbacks invalidate parasitics
   odb::dbDatabase::endEco(block_);
   odb::dbDatabase::undoEco(block_);
+
+  // Clear temporary ECO changes when restoring
+  _temp_eco_changes.clear();
 
   updateParasitics();
   sta_->findRequireds();
@@ -4465,6 +4475,35 @@ IncrementalParasiticsGuard::~IncrementalParasiticsGuard()
 
     resizer_->incremental_parasitics_enabled_ = false;
   }
+}
+
+void Resizer::recordBufferInsertion(const std::vector<const Pin*>& load_pins,
+                                LibertyCell* buffer_cell,
+                                const char* buffer_name,
+                                const char* buffered_net)
+{
+  // Format load pins with {} and space-separated names
+  std::string load_pins_str = "{ ";
+  for (const Pin* pin : load_pins) {
+    load_pins_str += network_->name(pin);
+    load_pins_str += " ";
+  }
+  load_pins_str += "}";
+  
+  std::string eco_cmd = fmt::format("insert_buffer {} {} {} {}", 
+                                   load_pins_str,
+                                   buffer_cell->name(),
+                                   buffer_name,
+                                   buffered_net);
+  _temp_eco_changes.push_back(eco_cmd);
+}
+
+void Resizer::recordSizeChange(Instance* inst, const LibertyCell* new_cell)
+{
+  std::string eco_cmd = fmt::format("size_cell {} {}", 
+                                   network_->name(inst),
+                                   new_cell->name());
+  _temp_eco_changes.push_back(eco_cmd);
 }
 
 }  // namespace rsz

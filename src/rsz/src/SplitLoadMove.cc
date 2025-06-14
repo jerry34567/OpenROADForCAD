@@ -198,6 +198,8 @@ bool SplitLoadMove::doMove(const Path* drvr_path,
   // out_net is the db net
   sta_->connectPin(buffer, output, out_net);
 
+  std::vector<const Pin*> load_pins;
+
   const int split_index = fanout_slacks.size() / 2;
   for (int i = 0; i < split_index; i++) {
     pair<Vertex*, Slack> fanout_slack = fanout_slacks[i];
@@ -249,6 +251,7 @@ bool SplitLoadMove::doMove(const Path* drvr_path,
           //          iterm->connect(db_mod_load_net);
         }
       }
+      load_pins.push_back(load_pin);
     }
   }
 
@@ -258,6 +261,8 @@ bool SplitLoadMove::doMove(const Path* drvr_path,
   // resizer_->parasiticsInvalid(net);
   resizer_->parasiticsInvalid(db_network_->dbToSta(db_drvr_net));
   resizer_->parasiticsInvalid(out_net);
+
+  resizer_->recordBufferInsertion(load_pins, buffer_cell, buffer_name.c_str(), network_->name(out_net));
 
   return true;
 }

@@ -365,8 +365,7 @@ Instance* BaseMove::makeBuffer(LibertyCell* cell,
                                Instance* parent,
                                const Point& loc)
 {
-  Instance* inst = resizer_->makeInstance(cell, name, parent, loc);
-  return inst;
+  return resizer_->makeBuffer(cell, name, parent, loc);
 }
 
 // Estimate slack impact from driver removal.
@@ -695,6 +694,7 @@ bool BaseMove::replaceCell(Instance* inst, const LibertyCell* replacement)
 {
   const char* replacement_name = replacement->name();
   dbMaster* replacement_master = db_->findMaster(replacement_name);
+  resizer_->recordSizeChange(inst, replacement);
 
   if (replacement_master) {
     dbInst* dinst = db_network_->staToDb(inst);

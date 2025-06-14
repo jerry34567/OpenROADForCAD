@@ -14,6 +14,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <fstream>
 
 #include "BaseMove.hh"
 #include "BufferMove.hh"
@@ -83,6 +84,23 @@ void RepairSetup::init()
   }
 }
 
+void RepairSetup::writeEcoChangelist(const char* filename)
+{
+  std::ofstream eco_file(filename);
+  if (!eco_file.is_open()) {
+    logger_->error(RSZ, 300, "Cannot open ECO changelist file {}", filename);
+    return;
+  }
+  
+  const std::vector<std::string>& changes = resizer_->getEcoChanges();
+  for (const std::string& change : changes) {
+    eco_file << change << "\n";
+  }
+  
+  eco_file.close();
+  logger_->info(RSZ, 301, "ECO changelist written to {}", filename);
+}
+
 bool RepairSetup::repairSetup(const float setup_slack_margin,
                               const double repair_tns_end_percent,
                               const int max_passes,
@@ -101,6 +119,7 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
                               const bool ga_enabled,
                               const bool shuffle_enabled)
 {
+  resizer_->clearEcoChanges();  // Clear all ECO changes at start
   bool repaired = false;
   init();
   if (shuffle_enabled) {  
@@ -739,6 +758,8 @@ bool RepairSetup::repairSetup(const float setup_slack_margin,
     logger_->error(RSZ, 25, "max utilization reached.");
   }
 
+  // Write ECO changelist at the end
+  writeEcoChangelist("eco.changelist");
   return repaired;
 }
 

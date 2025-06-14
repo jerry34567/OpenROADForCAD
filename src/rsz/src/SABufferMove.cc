@@ -268,7 +268,7 @@ void SABufferMove::myinit()
 {
     setIter_num(20);
     setT(1000);
-    setr(0.9);
+    setr(0.8);
     setFrozen_point(1);
     consecutive_reject_num = 0;
     max_consecutive_reject_num = 10;
